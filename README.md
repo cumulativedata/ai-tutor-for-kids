@@ -52,6 +52,12 @@ To make the AI work, you'll need a free account from OpenRouter (a service that 
 
 The app allows you to choose different AI models based on your needs. These models excel at long-context tasks and are particularly suitable for summarization roles. You can browse all available models at [OpenRouter Models](https://openrouter.ai/models).
 
+**Note**: The app comes with default models already configured:
+- **Conversation Model**: `qwen/qwen3-235b-a22b-2507` (for regular conversations)
+- **Summarization Model**: `qwen/qwen3-235b-a22b-thinking-2507` (for handling long conversations)
+
+These defaults work well for most use cases and don't need to be changed unless you want to experiment with different models.
+
 ### Recommended Models for Summarization:
 - **GPT-5 (high)**
 - **GPT-5 (medium)**
