@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Chat Assistant</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.2/marked.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+        }
+        .chat-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px 15px 0 0;
+            flex-shrink: 0;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 20px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+            word-wrap: break-word;
+            line-height: 1.4;
+            font-size: 1.5em;
+        }
+        .user-message {
+            background: #007bff;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 8px;
+            max-width: 127.5%;
+        }
+        .bot-message {
+            background: white;
+            border: 2px solid #e9ecef;
+            align-self: stretch;
+            border-bottom-left-radius: 8px;
+            width: 100%;
+            max-width: 100%;
+        }
+        .bot-message svg {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .bot-message h1, .bot-message h2, .bot-message h3 {
+            font-size: 1.1em;
+            margin: 10px 0 5px 0;
+            color: #495057;
+        }
+        .bot-message p {
+            margin: 8px 0;
+        }
+        .bot-message code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .bot-message pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .bot-message ul, .bot-message ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        .input-section {
+            padding: 20px;
+            background: white;
+            border-radius: 0 0 15px 15px;
+            flex-shrink: 0;
+            border-top: 1px solid #e9ecef;
+        }
+        .topic-selector {
+            background: linear-gradient(45deg, #ffecd2 0%, #fcb69f 100%);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .settings-section {
+            background: linear-gradient(45deg, #a8edea 0%, #fed6e3 100%);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .btn-topic {
+            margin: 5px;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+        }
+        .btn-topic:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .btn-topic.active {
+            background: #28a745;
+            border-color: #28a745;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .typing-indicator {
+            display: none;
+            padding: 10px 16px;
+            background: #e9ecef;
+            border-radius: 20px;
+            margin: 10px 0;
+            max-width: 80px;
+            align-self: flex-start;
+        }
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+        .typing-dots div {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #6c757d;
+            animation: typing 1.4s infinite;
+        }
+        .typing-dots div:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots div:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+        .stats {
+            font-size: 0.8em;
+            color: #6c757d;
+            margin-top: 10px;
+        }
+        .api-setup {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .collapse-btn {
+            font-size: 0.8em;
+            padding: 2px 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container py-3">
+    <div class="row justify-content-center">
+        <div class="col-12" style="min-width: 800px; max-width: 1200px;">
+                
+                <!-- API Setup Section -->
+                <div class="settings-section">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">⚙️ Settings</h5>
+                        <button class="btn btn-sm btn-outline-secondary collapse-btn" onclick="toggleSettings()">
+                            <span id="settingsToggleText">Hide</span>
+                        </button>
+                    </div>
+                    <div id="settingsContent">
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">API Endpoint:</label>
+                                <input type="text" id="apiEndpoint" class="form-control form-control-sm" 
+                                       value="https://openrouter.ai/api/v1/chat/completions">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Conversation Model:</label>
+                                <input type="text" id="apiModel" class="form-control form-control-sm" 
+                                       value="qwen/qwen3-235b-a22b-2507">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Summarization Model:</label>
+                                <input type="text" id="summarizationModel" class="form-control form-control-sm" 
+                                       value="qwen/qwen3-235b-a22b-thinking-2507">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">API Key:</label>
+                            <div class="input-group">
+                                <input type="password" id="apiKey" class="form-control form-control-sm" 
+                                       placeholder="Enter your API key">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="toggleApiKeyVisibility()">👁️</button>
+                                <button class="btn btn-primary btn-sm" onclick="saveApiSettings()">Save</button>
+                            </div>
+                            <small class="text-muted">Your API key is stored locally in your browser.</small>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-warning btn-sm" onclick="clearAllHistory()">Clear All History</button>
+                            <button class="btn btn-info btn-sm" onclick="exportHistory()">Export History</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Topic Selection -->
+                <div class="topic-selector">
+                    <h4 class="text-center mb-3">🎓 Choose Your Learning Topic!</h4>
+                    <div class="text-center">
+                        <button class="btn btn-primary btn-topic" data-topic="math">🔢 Math</button>
+                        <button class="btn btn-primary btn-topic" data-topic="english">📚 English</button>
+                        <button class="btn btn-primary btn-topic" data-topic="science">🔬 Science</button>
+                        <button class="btn btn-primary btn-topic" data-topic="history">🏛️ History</button>
+                        <button class="btn btn-primary btn-topic" data-topic="general">💭 General Help</button>
+                    </div>
+                    <div class="stats text-center">
+                        <span id="currentTopic">No topic selected</span> | 
+                        Messages: <span id="messageCount">0</span> | 
+                        <div id="tokenStatsDisplay">
+                            Tokens: <span id="tokenCount">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Interface -->
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <h3 class="mb-0 text-center">🤖 Your Learning Assistant</h3>
+                        <p class="mb-0 text-center opacity-75">Ask me anything about your chosen topic!</p>
+                    </div>
+                    
+                    <div class="chat-messages" id="chatMessages">
+                        <!-- Initial message will be added by JavaScript -->
+                    </div>
+                    
+                    <div class="typing-indicator" id="typingIndicator">
+                        <div class="typing-dots">
+                            <div></div>
+                            <div></div>
+                            <div></div>
+                        </div>
+                    </div>
+                    
+                    <div class="input-section">
+                        <div class="input-group">
+                            <input type="text" id="messageInput" class="form-control" placeholder="Select a topic above to start learning..." disabled>
+                            <button class="btn btn-primary" id="sendButton" disabled>Send 📤</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Learning topic prompts
+        const TOPIC_PROMPTS = {
+            math: `You are a fun, encouraging math tutor for children. Always respond with a single HTML div tag. Using the div tag will give you the flexibility of adding diagrams, visual aids, and interactive elements as needed. Use Comic Sans MS or similar playful font. Include bright, friendly colors (like sky blue, soft yellow) and light borders. Allow natural width for the top div element, default width is 750px. Default font size is 1.5 rem, vary for readability. Use emojis sparingly. Don't try to make forms in HTML - they won't work and are not needed. You should be aware of age, grade level, and target grade curriculum. Else, ask. Ask grade appropriate questions to understand proficiency and tune questions to facilitate practice and improving. Repeat explanation when the student is struggling. Ask one question at a time. Keep questions between slightly challenging and slightly frustrating. Don't stick to the same topic/line of questions for too long and switch to a different topic in the curriculum to keep things interesting and follow the curriculum. Occasionally increase difficulty to assess skill level. Keep responses low in tokens but visually engaging. Use a pink brain Emoji for questions.`,
+            
+            english: `You are a friendly English language arts teacher for children. Always respond with a single HTML div tag. Using the div tag will give you the flexibility of adding diagrams, visual aids, and interactive elements as needed. Use Comic Sans MS or similar playful font. Include bright, friendly colors (like sky blue, soft yellow) and light borders. Allow natural width for the top div element, default width is 750px. Default font size is 1.5 rem, vary for readability. Use emojis sparingly. Don't try to make forms in HTML - they won't work and are not needed. Help with reading comprehension, writing, grammar, vocabulary, and literature. Explain concepts clearly with examples. Encourage creativity in writing and reading. Make learning English enjoyable and engaging. If you don't know age and grade level, ask. Remember student progress and adjust difficulty accordingly. Ask grade appropriate questions to understand proficiency and tune questions to facilitate practice and improving. Repeat explanation when the student is struggling. Ask one question at a time. Keep questions between slightly challenging and slightly frustrating. Don't stick to the same topic/line of questions for too long and switch to a different topic in the curriculum to keep things interesting and follow the curriculum. Occasionally increase difficulty to assess skill level. Keep responses low in tokens but visually engaging. Use a pink brain Emoji for questions.`,
+            
+            science: `You are an enthusiastic science teacher for children. Always respond with a single HTML div tag. Using the div tag will give you the flexibility of adding diagrams, visual aids, and interactive elements as needed. Use Comic Sans MS or similar playful font. Include bright, friendly colors (like sky blue, soft yellow) and light borders. Allow natural width for the top div element, default width is 750px. Default font size is 1.5 rem, vary for readability. Use emojis sparingly. Don't try to make forms in HTML - they won't work and are not needed. Explain scientific concepts in simple, understandable terms. Use real-world examples and encourage curiosity about how things work. Make science exciting and accessible. Always encourage questions and exploration. If you don't know age and grade level, ask to provide appropriate explanations. Ask grade appropriate questions to understand proficiency and tune questions to facilitate practice and improving. Repeat explanation when the student is struggling. Ask one question at a time. Keep questions between slightly challenging and slightly frustrating. Don't stick to the same topic/line of questions for too long and switch to a different topic in the curriculum to keep things interesting and follow the curriculum. Occasionally increase difficulty to assess skill level. Keep responses low in tokens but visually engaging. Use a pink brain Emoji for questions.`,
+            
+            history: `You are a knowledgeable history teacher for children. Always respond with a single HTML div tag. Using the div tag will give you the flexibility of adding diagrams, visual aids, and interactive elements as needed. Use Comic Sans MS or similar playful font. Include bright, friendly colors (like sky blue, soft yellow) and light borders. Allow natural width for the top div element, default width is 750px. Default font size is 1.5 rem, vary for readability. Use emojis sparingly. Don't try to make forms in HTML - they won't work and are not needed. Make historical events come alive with interesting stories and facts. Explain the importance of historical events and how they connect to today. Make history engaging and help students understand different time periods and cultures. Ask about grade level to provide age-appropriate content. Ask grade appropriate questions to understand proficiency and tune questions to facilitate practice and improving. Repeat explanation when the student is struggling. Ask one question at a time. Keep questions between slightly challenging and slightly frustrating. Don't stick to the same topic/line of questions for too long and switch to a different topic in the curriculum to keep things interesting and follow the curriculum. Occasionally increase difficulty to assess skill level. Keep responses low in tokens but visually engaging. Use a pink brain Emoji for questions.`,
+            
+            general: `You are a helpful learning assistant for children. Always respond with a single HTML div tag. Using the div tag will give you the flexibility of adding diagrams, visual aids, and interactive elements as needed. Use Comic Sans MS or similar playful font. Include bright, friendly colors (like sky blue, soft yellow) and light borders. Allow natural width for the top div element, default width is 750px. Default font size is 1.5 rem, vary for readability. Use emojis sparingly. Don't try to make forms in HTML - they won't work and are not needed. You can help with homework, answer questions, explain concepts, and encourage learning across all subjects. Always be patient, encouraging, and age-appropriate. Make learning fun and engaging. Ask about the student's age and grade level to tailor your responses appropriately. Ask grade appropriate questions to understand proficiency and tune questions to facilitate practice and improving. Repeat explanation when the student is struggling. Ask one question at a time. Keep questions between slightly challenging and slightly frustrating. Don't stick to the same topic/line of questions for too long and switch to a different topic in the curriculum to keep things interesting and follow the curriculum. Occasionally increase difficulty to assess skill level. Keep responses low in tokens but visually engaging. Use a pink brain Emoji for questions.`,
+        };
+
+        // Constants
+        const CONSTANTS = {
+            // Summarization limits
+            SUMMARIZATION_CHAR_THRESHOLD: 25000,
+            SUMMARIZATION_MAX_TOKENS: 16000,
+            DEFAULT_MAX_TOKENS: 5000,
+            
+            // Token estimation (rough approximation: 1 token ≈ 4 characters)
+            TOKENS_PER_CHAR: 4,
+            
+            // History management
+            HISTORY_RETENTION_COUNT: 10,
+            
+            // API settings
+            DEFAULT_TEMPERATURE: 0.6,
+            SUMMARIZATION_TEMPERATURE: 0.5
+        };
+
+        let SUMMARIZATION_TOPIC_PROMPTS = {
+            default: `Summarize the following conversations. Retain age, grade, proficiencies, challenges, student preferences, recent topics practiced, recently explain topics and how long ago were they explained, etc. Keep track of all relevant topic of the current grade level in good granularity. Summary can be upto 1500 words. E.g. "The student is 11 years old and in grade 6. They ...."`
+        };
+
+
+        // Global state
+        let currentTopic = null;
+        let topicHistories = {}; // Separate history for each topic
+        let apiConfig = {
+            endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+            model: 'qwen/qwen3-235b-a22b-2507',
+            summarizationModel: 'qwen/qwen3-235b-a22b-thinking-2507',
+            apiKey: ''
+        };
+        
+        // Token usage tracking
+        let tokenStats = {
+            cumulativeInputTokens: 0,
+            cumulativeOutputTokens: 0,
+            lastInputTokens: 0,
+            lastOutputTokens: 0
+        };
+
+        // DOM elements
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const chatMessages = document.getElementById('chatMessages');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const currentTopicSpan = document.getElementById('currentTopic');
+        const messageCountSpan = document.getElementById('messageCount');
+        const tokenCountSpan = document.getElementById('tokenCount');
+
+        // Markdown to HTML conversion function
+        function markdownToHTML(markdown) {
+            try {
+                return marked.parse(markdown);
+            } catch (error) {
+                console.error('Markdown parsing error:', error);
+                return markdown.replace(/\n/g, '<br>');
+            }
+        }
+
+        // Settings functions
+        function toggleSettings() {
+            const content = document.getElementById('settingsContent');
+            const button = document.getElementById('settingsToggleText');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                button.textContent = 'Hide';
+            } else {
+                content.style.display = 'none';
+                button.textContent = 'Show';
+            }
+        }
+
+        function toggleApiKeyVisibility() {
+            const apiKeyInput = document.getElementById('apiKey');
+            apiKeyInput.type = apiKeyInput.type === 'password' ? 'text' : 'password';
+        }
+
+        function saveApiSettings() {
+            apiConfig.endpoint = document.getElementById('apiEndpoint').value;
+            apiConfig.model = document.getElementById('apiModel').value;
+            apiConfig.summarizationModel = document.getElementById('summarizationModel').value;
+            apiConfig.apiKey = document.getElementById('apiKey').value;
+            
+            localStorage.setItem('kids_chat_api_config', JSON.stringify(apiConfig));
+            
+            // Show success message
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = 'Saved!';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-success');
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-primary');
+            }, 2000);
+        }
+
+        function clearAllHistory() {
+            if (confirm('Are you sure you want to clear all chat history for all topics?')) {
+                localStorage.removeItem('kids_chat_histories');
+                topicHistories = {};
+                if (currentTopic) {
+                    loadTopicHistory(currentTopic);
+                }
+                updateStats();
+                alert('All history cleared!');
+            }
+        }
+
+        function exportHistory() {
+            const data = {
+                histories: topicHistories,
+                exported: new Date().toISOString()
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chat_history_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Initialize the app
+        function init() {
+            // Load API configuration
+            loadApiConfig();
+            
+            // Load chat histories
+            loadAllHistories();
+            
+            // Add initial welcome message
+            addMessageToDisplay('bot', "Hi there! 👋 Pick a topic above and I'll help you learn. Ask me questions, and I'll explain things in a way that's easy to understand!");
+            
+            // Set up event listeners
+            document.querySelectorAll('.btn-topic').forEach(btn => {
+                btn.addEventListener('click', selectTopic);
+            });
+            
+            sendButton.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !sendButton.disabled) {
+                    sendMessage();
+                }
+            });
+            
+            updateStats();
+            
+            // Hide settings by default
+            toggleSettings();
+        }
+
+        function loadApiConfig() {
+            const saved = localStorage.getItem('kids_chat_api_config');
+            if (saved) {
+                apiConfig = JSON.parse(saved);
+                document.getElementById('apiEndpoint').value = apiConfig.endpoint;
+                document.getElementById('apiModel').value = apiConfig.model;
+                document.getElementById('summarizationModel').value = apiConfig.summarizationModel || apiConfig.model;
+                document.getElementById('apiKey').value = apiConfig.apiKey;
+            }
+        }
+
+        function loadAllHistories() {
+            const saved = localStorage.getItem('kids_chat_histories');
+            if (saved) {
+                topicHistories = JSON.parse(saved);
+            }
+        }
+
+        function saveAllHistories() {
+            localStorage.setItem('kids_chat_histories', JSON.stringify(topicHistories));
+        }
+
+        function getTopicHistory(topic) {
+            if (!topicHistories[topic]) {
+                topicHistories[topic] = {
+                    messages: [],
+                    totalTokens: 0,
+                    lastUpdated: new Date().toISOString()
+                };
+            }
+            return topicHistories[topic];
+        }
+
+        function selectTopic(e) {
+            const topic = e.target.dataset.topic;
+            currentTopic = topic;
+            
+            // Update UI
+            document.querySelectorAll('.btn-topic').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            // Enable input if API key is set
+            if (apiConfig.apiKey) {
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                messageInput.placeholder = "Type your answer...";
+                messageInput.focus();
+            } else {
+                alert('Please set your API key in the settings first!');
+                toggleSettings();
+                return;
+            }
+            
+            // Load topic-specific history
+            loadTopicHistory(topic);
+            
+            // Add topic change message
+            addMessage('system', `Topic changed to: ${e.target.textContent}`);
+            
+            updateStats();
+        }
+
+        function loadTopicHistory(topic) {
+            // Clear current display
+            chatMessages.innerHTML = '';
+            
+            const history = getTopicHistory(topic);
+            
+            // If no history exists, show welcome message
+            if (history.messages.length === 0) {
+                addMessageToDisplay('bot', `Hi there! 👋 I'm your learning assistant! To help you best, could you please tell me your age, gender, grade level, and what curriculum you're using? This will help me tailor my explanations to your needs. Once you share that information, let's get started learning about ${topic}!`);
+            } else {
+                // Restore messages to display (exclude system messages from display)
+                // Summary messages (isSummary: true) are displayed as bot messages
+                history.messages.forEach(msg => {
+                    if (msg.role !== 'system') {
+                        addMessageToDisplay(msg.role === 'user' ? 'user' : 'bot', msg.content);
+                    }
+                });
+            }
+        }
+
+        function addMessage(type, content) {
+            addMessageToDisplay(type, content);
+            
+            // Add to topic history (except system messages)
+            if (type !== 'system' && currentTopic) {
+                const history = getTopicHistory(currentTopic);
+                const role = type === 'user' ? 'user' : 'assistant';
+                history.messages.push({ 
+                    role, 
+                    content,
+                    timestamp: new Date().toISOString()
+                });
+                
+                // Estimate tokens (rough approximation: 1 token ≈ 4 characters)
+                history.totalTokens += Math.ceil(content.length / 4);
+                
+                
+                history.lastUpdated = new Date().toISOString();
+                saveAllHistories();
+                updateStats();
+            }
+        }
+
+        function addMessageToDisplay(type, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type === 'user' ? 'user-message' : 'bot-message'}`;
+            
+            if (type === 'system') {
+                messageDiv.innerHTML = `<em>${content}</em>`;
+                messageDiv.style.background = '#fff3cd';
+                messageDiv.style.border = '1px solid #ffeaa7';
+                messageDiv.style.color = '#856404';
+                messageDiv.style.textAlign = 'center';
+                messageDiv.style.margin = '10px auto';
+                messageDiv.style.alignSelf = 'center';
+                messageDiv.style.maxWidth = '90%';
+            } else {
+                const label = type === 'user' ? 'You' : 'Assistant';
+                if (type === 'bot') {
+                    // Check if content is a single div tag
+                    if (content.trim().startsWith('<div') && content.trim().endsWith('</div>')) {
+                        // Display div tag directly
+                        messageDiv.innerHTML = `<strong>${label}:</strong> <div style="margin-top: 8px;">${content}</div>`;
+                    } else {
+                        // Convert markdown to HTML for non-div bot messages
+                        const htmlContent = markdownToHTML(content);
+                        messageDiv.innerHTML = `<strong>${label}:</strong> <div style="margin-top: 8px;">${htmlContent}</div>`;
+                    }
+                } else {
+                    messageDiv.innerHTML = `<strong>${label}:</strong> ${content}`;
+                }
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || !currentTopic || !apiConfig.apiKey) return;
+            
+            // Add user message
+            addMessage('user', message);
+            messageInput.value = '';
+            
+            // Show typing indicator
+            typingIndicator.style.display = 'block';
+            sendButton.disabled = true;
+            messageInput.disabled = true;
+            
+            try {
+                // Check if summarization is needed BEFORE processing the user message
+                if (shouldSummarize(currentTopic)) {
+                    console.log('Summarization needed, performing summarization...');
+                    const summarizationSuccess = await performSummarization(currentTopic);
+                    // Small delay to show the summary was added
+                    if (summarizationSuccess) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+                
+                // Now process the user's message with potentially summarized history
+                const response = await callAPI(message);
+                addMessage('bot', response);
+            } catch (error) {
+                console.error('API Error:', error);
+                addMessage('bot', "Sorry, I'm having trouble connecting right now. Please check your API settings and try again! 🤖");
+            }
+            
+            // Hide typing indicator and re-enable input
+            typingIndicator.style.display = 'none';
+            sendButton.disabled = false;
+            messageInput.disabled = false;
+            messageInput.focus();
+        }
+
+        // Helper function to format timestamp as YYYY-MM-DD HH:MM:SS
+        function formatTimestamp(date) {
+            const pad = (num) => num.toString().padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+        }
+
+        async function callAPI(userMessage) {
+            const systemPrompt = TOPIC_PROMPTS[currentTopic];
+            const history = getTopicHistory(currentTopic);
+            
+            // Add timestamp to the current user message
+            const timestampedUserMessage = `[${formatTimestamp(new Date())}] ${userMessage}`;
+            
+            // Process history messages to add timestamps where needed
+            const processedHistoryMessages = history.messages.map(msg => {
+                // Only add timestamps to user messages that don't already have them
+                if (msg.role === 'user' && !msg.content.startsWith('[')) {
+                    return {
+                        ...msg,
+                        content: `[${formatTimestamp(new Date(msg.timestamp))}] ${msg.content}`
+                    };
+                }
+                return msg;
+            });
+            
+            const messages = [
+                { role: 'system', content: systemPrompt },
+                ...processedHistoryMessages, // Include ALL messages for context
+                { role: 'user', content: timestampedUserMessage }
+            ];
+
+            // Log the prompt being sent
+            console.log('=== PROMPT SENT TO API ===', apiConfig.model);
+            console.log('Messages:', JSON.stringify(messages, null, 2));
+            console.log('API Config:', {
+                endpoint: apiConfig.endpoint,
+                model: apiConfig.model,
+                topic: currentTopic
+            });
+
+            const response = await fetch(apiConfig.endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiConfig.apiKey}`,
+                    'HTTP-Referer': window.location.href,
+                    'X-Title': 'Kids Learning Chat'
+                },
+                body: JSON.stringify({
+                    model: apiConfig.model,
+                    messages: messages,
+                    max_tokens: CONSTANTS.DEFAULT_MAX_TOKENS,
+                    temperature: CONSTANTS.DEFAULT_TEMPERATURE,
+                    stream: false,
+                    usage: {
+                        include: true
+                    },
+                    reasoning: {
+                        exclude: true
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                console.error('API request failed:', response.status, await response.text());
+                throw new Error(`API request failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Log the response received
+            console.log('=== RESPONSE FROM API ===');
+            console.log('Response Data:', JSON.stringify(data, null, 2));
+            console.log('Response Content:', data.choices[0].message.content);
+            
+            // Update token usage stats from OpenRouter response
+            if (data.usage) {
+                tokenStats.lastInputTokens = data.usage.prompt_tokens || 0;
+                tokenStats.lastOutputTokens = data.usage.completion_tokens || 0;
+                tokenStats.cumulativeInputTokens += tokenStats.lastInputTokens;
+                tokenStats.cumulativeOutputTokens += tokenStats.lastOutputTokens;
+                
+                // Update the stats display
+                updateTokenStatsDisplay();
+            }
+            
+            return data.choices[0].message.content;
+        }
+
+        // Check if summarization is needed based on character count of older messages
+        function shouldSummarize(topic) {
+            const history = getTopicHistory(topic);
+            if (history.messages.length <= CONSTANTS.HISTORY_RETENTION_COUNT) return false;
+            
+            // Get messages older than the last 10
+            const olderMessages = history.messages.slice(0, -CONSTANTS.HISTORY_RETENTION_COUNT);
+            if (olderMessages.length === 0) return false;
+            
+            // Calculate total characters of older messages
+            const totalChars = olderMessages.reduce((total, msg) => total + msg.content.length, 0);
+            return totalChars > CONSTANTS.SUMMARIZATION_CHAR_THRESHOLD;
+        }
+
+        // Perform summarization by calling the AI
+        async function performSummarization(topic) {
+            const history = getTopicHistory(topic);
+            const olderMessages = history.messages.slice(0, -CONSTANTS.HISTORY_RETENTION_COUNT);
+            const recentMessages = history.messages.slice(-CONSTANTS.HISTORY_RETENTION_COUNT);
+            
+            // Process older messages to add timestamps where needed
+            const processedOlderMessages = olderMessages.map(msg => {
+                // Only add timestamps to user messages that don't already have them
+                if (msg.role === 'user' && !msg.content.startsWith('[')) {
+                    return {
+                        ...msg,
+                        content: `[${formatTimestamp(new Date(msg.timestamp))}] ${msg.content}`
+                    };
+                }
+                return msg;
+            });
+            
+            // Prepare messages for summarization API call
+            // Use topic-specific summarization prompt or default
+            const summarizationPrompt = SUMMARIZATION_TOPIC_PROMPTS[topic] || SUMMARIZATION_TOPIC_PROMPTS.default;
+            const summaryMessages = [
+                { role: 'system', content: summarizationPrompt },
+                ...processedOlderMessages
+            ];
+
+            // Log the summarization prompt being sent
+            console.log('=== SUMMARIZATION PROMPT SENT TO API ===', apiConfig.summarizationModel || apiConfig.model);
+            console.log('Topic:', topic);
+            console.log('Messages to summarize:', olderMessages.length);
+            console.log('Summary Messages:', JSON.stringify(summaryMessages, null, 2));
+            console.log('Summarization API Config:', {
+                endpoint: apiConfig.endpoint,
+                model: apiConfig.summarizationModel || apiConfig.model
+            });
+
+            try {
+                // Call API to create summary
+                const response = await fetch(apiConfig.endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiConfig.apiKey}`,
+                        'HTTP-Referer': window.location.href,
+                        'X-Title': 'Kids Learning Chat - Summarization'
+                    },
+                    body: JSON.stringify({
+                        model: apiConfig.summarizationModel || apiConfig.model,
+                        messages: summaryMessages,
+                        max_tokens: CONSTANTS.SUMMARIZATION_MAX_TOKENS,
+                        temperature: CONSTANTS.SUMMARIZATION_TEMPERATURE,
+                        stream: false,
+                        usage: {
+                            include: true
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Summarization API request failed:', response.status, errorText);
+                    throw new Error(`Summarization API request failed: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // Log the summarization response received
+                console.log('=== SUMMARIZATION RESPONSE FROM API ===');
+                console.log('Summarization Response Data:', JSON.stringify(data, null, 2));
+                console.log('Summary Content:', data.choices[0].message.content);
+                
+                const summaryContent = data.choices[0].message.content;
+                
+                // Create new history with AI summary message + recent messages
+                history.messages = [
+                    { 
+                        role: 'assistant', 
+                        content: summaryContent, 
+                        timestamp: new Date().toISOString(),
+                        isSummary: true 
+                    },
+                    ...recentMessages
+                ];
+                
+                // Recalculate tokens
+                history.totalTokens = history.messages.reduce((total, msg) => 
+                    total + Math.ceil(msg.content.length / 4), 0);
+                
+                // Save updated history
+                saveAllHistories();
+                
+                console.log(`Chat history summarized for topic: ${topic}`);
+                console.log('New history after summarization:', history.messages.length, 'messages');
+                // Reload the history display to show the summary in proper chronological order
+                loadTopicHistory(topic);
+                return true;
+                
+            } catch (error) {
+                console.error('Summarization failed:', error);
+                // Fallback to simple consolidation if AI summarization fails
+                consolidateTopicHistoryFallback(topic);
+                return false;
+            }
+        }
+
+        // Fallback consolidation method (original logic as backup)
+        function consolidateTopicHistoryFallback(topic) {
+            const history = getTopicHistory(topic);
+            if (history.messages.length <= CONSTANTS.HISTORY_RETENTION_COUNT) return;
+            
+            // Keep the last 10 messages
+            const recentMessages = history.messages.slice(-CONSTANTS.HISTORY_RETENTION_COUNT);
+            const olderMessages = history.messages.slice(0, -CONSTANTS.HISTORY_RETENTION_COUNT);
+            
+            // Create a simple summary
+            const summary = createSimpleConversationSummary(olderMessages, topic);
+            
+            // Replace history with summary + recent messages
+            history.messages = [
+                { 
+                    role: 'assistant', 
+                    content: summary, 
+                    timestamp: new Date().toISOString(),
+                    isSummary: true 
+                },
+                ...recentMessages
+            ];
+            
+            // Recalculate tokens
+            history.totalTokens = history.messages.reduce((total, msg) => 
+                total + Math.ceil(msg.content.length / 4), 0);
+            
+                console.log(`Chat history consolidated (fallback) for topic: ${topic}`);
+                // Reload the history display to show the summary in proper chronological order
+                loadTopicHistory(topic);
+        }
+
+        function createSimpleConversationSummary(messages, topic) {
+            const topics = [];
+            const skills = [];
+            let ageGrade = '';
+            
+            // Analyze the conversation for learning patterns
+            messages.forEach(msg => {
+                if (msg.role === 'user') {
+                    const content = msg.content.toLowerCase();
+                    if (content.includes('what') || content.includes('how') || content.includes('why')) {
+                        skills.push('asking_questions');
+                    }
+                    if (content.includes('help') || content.includes('explain')) {
+                        skills.push('seeking_help');
+                    }
+                    // Try to extract age/grade mentions
+                    const ageMatch = content.match(/(\d+)\s*(years?\s*old|grade)/i);
+                    if (ageMatch && !ageGrade) {
+                        ageGrade = ageMatch[0];
+                    }
+                }
+                if (msg.role === 'assistant') {
+                    // Extract any mentioned concepts
+                    const content = msg.content.toLowerCase();
+                    if (topic === 'math') {
+                        if (content.includes('addition')) topics.push('addition');
+                        if (content.includes('subtraction')) topics.push('subtraction');
+                        if (content.includes('multiplication')) topics.push('multiplication');
+                        if (content.includes('division')) topics.push('division');
+                        if (content.includes('fraction')) topics.push('fractions');
+                    }
+                }
+            });
+            
+            return `## 📚 Previous Learning Session Summary
+
+**Student Profile:** ${ageGrade ? `${ageGrade} student` : 'Student'} learning ${topic}
+
+**Topics Covered:** ${topics.join(', ') || `General ${topic} topics`}
+
+**Learning Skills Demonstrated:** ${skills.join(', ') || 'Active participation'}
+
+**Total Previous Exchanges:** ${messages.length} messages
+
+**Session Date:** ${new Date().toLocaleDateString()}
+
+---
+
+*This summary represents our previous conversation. Let's continue building on what you've learned!*`;
+        }
+
+        function updateTokenStatsDisplay() {
+            const tokenStatsDisplay = document.getElementById('tokenStatsDisplay');
+            if (tokenStatsDisplay) {
+                tokenStatsDisplay.innerHTML = `
+                    Cumulative Input: <span id="cumulativeInputTokens">${tokenStats.cumulativeInputTokens.toLocaleString()}</span> | 
+                    Cumulative Output: <span id="cumulativeOutputTokens">${tokenStats.cumulativeOutputTokens.toLocaleString()}</span> | 
+                    Last Input: <span id="lastInputTokens">${tokenStats.lastInputTokens.toLocaleString()}</span> | 
+                    Last Output: <span id="lastOutputTokens">${tokenStats.lastOutputTokens.toLocaleString()}</span>
+                `;
+            }
+        }
+
+        function updateStats() {
+            currentTopicSpan.textContent = currentTopic ? 
+                document.querySelector(`[data-topic="${currentTopic}"]`).textContent : 
+                'No topic selected';
+            
+            if (currentTopic) {
+                const history = getTopicHistory(currentTopic);
+                // Count all messages except system messages (summaries are included as they're AI messages)
+                const messageCount = history.messages.filter(msg => msg.role !== 'system').length;
+                messageCountSpan.textContent = messageCount;
+                tokenCountSpan.textContent = history.totalTokens.toLocaleString();
+            } else {
+                messageCountSpan.textContent = '0';
+                tokenCountSpan.textContent = '0';
+            }
+            
+            // Update token stats display
+            updateTokenStatsDisplay();
+        }
+
+        // Initialize the app when the page loads
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
